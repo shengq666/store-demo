@@ -166,6 +166,7 @@
             {{ isAddingWarehouse ? '拖动绘制新仓库' : '添加新仓库' }}
           </button>
           <button @click="updateWarehouse">更新仓库属性</button>
+          <button @click="resetStageView">重置画布视图</button>
           <button class="delete-btn" @click="resetAll">重置所有数据</button>
         </div>
 
@@ -467,11 +468,15 @@ export default {
       isAddingWarehouse.value = false
     }
 
+    // 添加画布拖拽相关的响应式数据
+    const isStageDragging = ref(false)
+    const lastPointerPosition = reactive({ x: 0, y: 0 })
+
     // 添加鼠标按下处理函数
     const handleStageMouseDown = (e) => {
       // 如果正在添加仓库，开始拖拽绘制
+      const stageNode = stage.value.getNode()
       if (isAddingWarehouse.value) {
-        const stageNode = stage.value.getNode()
         const pointerPos = stageNode.getPointerPosition()
 
         if (pointerPos) {
@@ -499,11 +504,44 @@ export default {
             layer.batchDraw()
           }
         }
+      } else {
+        // 启动画布拖拽模式
+        const pointerPos = stageNode.getPointerPosition()
+
+        if (pointerPos) {
+          isStageDragging.value = true
+          lastPointerPosition.x = pointerPos.x
+          lastPointerPosition.y = pointerPos.y
+        }
       }
     }
 
     // 修改 handleStageMouseMove 函数
     const handleStageMouseMove = (e) => {
+      const stageNode = stage.value.getNode()
+      if (isStageDragging.value) {
+        const pointerPos = stageNode.getPointerPosition()
+
+        if (pointerPos) {
+          const dx = pointerPos.x - lastPointerPosition.x
+          const dy = pointerPos.y - lastPointerPosition.y
+
+          const currentPos = stageNode.position()
+          stageNode.position({
+            x: currentPos.x + dx,
+            y: currentPos.y + dy,
+          })
+
+          // 更新记录的位置
+          lastPointerPosition.x = pointerPos.x
+          lastPointerPosition.y = pointerPos.y
+
+          // 更新响应式数据
+          stagePosition.x = stageNode.x()
+          stagePosition.y = stageNode.y()
+        }
+        return
+      }
       // 如果正在添加仓库且已开始拖拽，更新临时矩形
       if (
         isAddingWarehouse.value &&
@@ -537,13 +575,15 @@ export default {
 
     // 添加鼠标释放处理函数
     const handleStageMouseUp = (e) => {
+      // 结束画布拖拽
+      isStageDragging.value = false
+      const stageNode = stage.value.getNode()
       // 如果正在添加仓库且已开始拖拽，创建仓库
       if (
         isAddingWarehouse.value &&
         warehouseStartPoint.x &&
         warehouseStartPoint.y
       ) {
-        const stageNode = stage.value.getNode()
         const pointerPos = stageNode.getPointerPosition()
 
         if (pointerPos) {
@@ -571,6 +611,8 @@ export default {
 
     // 添加鼠标离开画布处理函数
     const handleStageMouseLeave = () => {
+      // 结束画布拖拽
+      isStageDragging.value = false
       if (isAddingWarehouse.value) {
         // 取消仓库添加操作
         isAddingWarehouse.value = false
@@ -1138,8 +1180,23 @@ export default {
       stagePosition.x = newPos.x
       stagePosition.y = newPos.y
     }
+    // 添加重置画布视图的函数
+    const resetStageView = () => {
+      if (stage.value) {
+        const stageNode = stage.value.getNode()
+        stageNode.scale({ x: 1, y: 1 })
+        stageNode.position({ x: 0, y: 0 })
 
+        // 更新响应式数据
+        stageScale.value = 1
+        stagePosition.x = 0
+        stagePosition.y = 0
+
+        updateStatus('画布视图已重置')
+      }
+    }
     return {
+      resetStageView,
       handleWheel,
       // 数据
       warehouses,
