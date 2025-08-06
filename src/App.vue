@@ -37,6 +37,7 @@
             @mousemove="handleStageMouseMove"
             @mouseup="handleStageMouseUp"
             @mouseleave="handleStageMouseLeave"
+            @wheel="handleWheel"
           >
             <v-layer ref="backgroundLayer">
               <v-image :config="backgroundConfig" />
@@ -274,10 +275,18 @@ export default {
 
     // Konva配置
     const stage = ref(null)
+    // 添加缩放相关的响应式数据
+    const stageScale = ref(1)
+    const stagePosition = reactive({ x: 0, y: 0 })
+
     const stageConfig = reactive({
       width: 970,
       height: 500,
       draggable: false,
+      scaleX: stageScale.value,
+      scaleY: stageScale.value,
+      x: stagePosition.x,
+      y: stagePosition.y,
     })
     const backgroundConfig = reactive({
       width: 970,
@@ -1091,7 +1100,47 @@ export default {
       })
     })
 
+    const handleWheel = (e) => {
+      e.evt.preventDefault()
+
+      const stageNode = stage.value.getNode()
+      const oldScale = stageNode.scaleX()
+
+      const pointer = stageNode.getPointerPosition()
+
+      if (!pointer) return
+
+      const mousePointTo = {
+        x: (pointer.x - stageNode.x()) / oldScale,
+        y: (pointer.y - stageNode.y()) / oldScale,
+      }
+
+      // 计算新的缩放比例 (鼠标滚轮向上滚动放大，向下滚动缩小)
+      const scaleBy = 1.05
+      const newScale =
+        e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy
+
+      // 限制缩放范围在 0.1 到 5 之间
+      const clampedScale = Math.max(0.1, Math.min(5, newScale))
+
+      stageNode.scale({ x: clampedScale, y: clampedScale })
+
+      // 调整舞台位置以实现围绕鼠标指针缩放
+      const newPos = {
+        x: pointer.x - mousePointTo.x * clampedScale,
+        y: pointer.y - mousePointTo.y * clampedScale,
+      }
+
+      stageNode.position(newPos)
+
+      // 更新响应式数据
+      stageScale.value = clampedScale
+      stagePosition.x = newPos.x
+      stagePosition.y = newPos.y
+    }
+
     return {
+      handleWheel,
       // 数据
       warehouses,
       currentWarehouse,
