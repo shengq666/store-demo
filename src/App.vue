@@ -285,6 +285,17 @@ export default {
         }
         return newBox
       },
+      padding: 0,
+      anchorStroke: '#3498db',
+      borderStroke: '#3498db',
+      borderStrokeWidth: 2,
+      anchorFill: '#fff',
+      anchorSize: 8,
+      keepRatio: false,
+      anchorCornerRadius: 0,
+      borderEnabled: true,
+      ignoreStroke: false, // 改为false，考虑边框
+      useSingleNodeRotation: true,
     })
 
     // UI状态
@@ -389,8 +400,8 @@ export default {
               child.width(warehouse.width)
               child.height(warehouse.height)
             } else if (child.className === 'Text') {
-              child.x(warehouse.width / 2)
-              child.y(warehouse.height / 2)
+              // child.x(0)
+              // child.y(0)
               child.text(`${warehouse.name} (${warehouse.products.length})`)
             }
           })
@@ -420,12 +431,16 @@ export default {
       warehouse.rotation = activeShape.rotation()
       warehouse.scaleX = activeShape.scaleX()
       warehouse.scaleY = activeShape.scaleY()
-      warehouse.width = activeShape.width() * activeShape.scaleX()
-      warehouse.height = activeShape.height() * activeShape.scaleY()
+      const newWidth = activeShape.width() * activeShape.scaleX()
+      const newHeight = activeShape.height() * activeShape.scaleY()
+      warehouse.width = newWidth
+      warehouse.height = newHeight
 
       // 重置缩放因子
       activeShape.scaleX(1)
       activeShape.scaleY(1)
+      activeShape.width(newWidth)
+      activeShape.height(newHeight)
 
       // 更新控制面板
       if (selectedWarehouseId.value === warehouse.id) {
@@ -436,14 +451,20 @@ export default {
       }
 
       // 更新文本位置
-      const textNode = activeShape.findOne('Text')
-      if (textNode) {
-        textNode.x(warehouse.width / 2)
-        textNode.y(warehouse.height / 2)
-      }
+      // const textNode = activeShape.findOne('Text')
+      // if (textNode) {
+      //   textNode.x(0)
+      //   textNode.y(0)
+      //   textNode.width(warehouse.width)
+      // }
 
-      updateLinesForWarehouse(warehouse.id)
+      // updateLinesForWarehouse(warehouse.id)
       updateStatus(`仓库 "${warehouse.name}" 变换完成`)
+
+      // 重要：更新transformer以反映新的边界
+      setTimeout(() => {
+        updateTransformer()
+      }, 0)
     }
 
     // 更新变换器节点
@@ -457,6 +478,11 @@ export default {
         const selectedNode = findKonvaGroup(selectedWarehouseId.value)
         if (selectedNode) {
           transformerNode.nodes([selectedNode])
+
+          transformerNode.moveToTop()
+
+          // 强制更新边界
+          transformerNode.getLayer().batchDraw()
         }
       }
     }
@@ -729,25 +755,27 @@ export default {
         stroke:
           warehouse.id === selectedWarehouseId.value ? '#3498db' : '#2c3e50',
         strokeWidth: warehouse.id === selectedWarehouseId.value ? 3 : 2,
-        cornerRadius: 5,
+        cornerRadius: 2,
         shadowColor: 'rgba(0,0,0,0.3)',
         shadowBlur: 5,
         shadowOffset: { x: 2, y: 2 },
         shadowOpacity: 0.5,
+        x: 0,
+        y: 0,
       }
     }
 
     const getLabelConfig = (warehouse) => {
       return {
-        x: warehouse.width / 2,
-        y: warehouse.height / 2,
+        x: 0,
+        y: 0,
         text: `${warehouse.name} (${warehouse.products.length})`,
-        fontSize: 14,
+        fontSize: 18,
         fontFamily: 'Arial',
         fill: 'white',
         align: 'center',
-        verticalAlign: 'middle',
         width: warehouse.width,
+        height: warehouse.height,
         padding: 5,
         listening: false,
       }
@@ -1193,5 +1221,14 @@ button:hover {
   .products-container {
     flex-direction: column;
   }
+}
+
+/* 在现有样式中添加 */
+.v-group {
+  display: block;
+}
+
+.v-rect {
+  display: block;
 }
 </style>
