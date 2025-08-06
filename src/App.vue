@@ -415,7 +415,7 @@ export default {
 
     // 添加鼠标按下处理函数
     const handleStageMouseDown = (e) => {
-      // 如果正在添加仓库，处理仓库创建逻辑
+      // 如果正在添加仓库，开始拖拽绘制
       if (isAddingWarehouse.value) {
         const stageNode = stage.value.getNode()
         const pointerPos = stageNode.getPointerPosition()
@@ -428,8 +428,7 @@ export default {
           warehouseEndPoint.y = pointerPos.y
 
           // 创建临时矩形来显示拖拽区域
-          const layer =
-            stageNode.findOne('.warehouseLayer') || stageNode.children[2] // warehouseLayer
+          const layer = stageNode.children[2] // warehouseLayer
           if (layer) {
             tempWarehouseRect.value = new Konva.Rect({
               x: warehouseStartPoint.x,
@@ -943,9 +942,10 @@ export default {
         width: warehouse.width,
         height: warehouse.height,
         fill: warehouse.color,
-        stroke:
-          warehouse.id === selectedWarehouseId.value ? '#3498db' : '#2c3e50',
-        strokeWidth: warehouse.id === selectedWarehouseId.value ? 3 : 2,
+        // 矩形的 border 填充
+        // stroke:
+        //   warehouse.id === selectedWarehouseId.value ? '#3498db' : '#2c3e50',
+        // strokeWidth: warehouse.id === selectedWarehouseId.value ? 3 : 2,
         cornerRadius: 2,
         shadowColor: 'rgba(0,0,0,0.3)',
         shadowBlur: 5,
