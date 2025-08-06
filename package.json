@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
-    "vue": "^3.5.17"
+    "konva": "^9.3.22",
+    "vue": "^3.5.17",
+    "vue-konva": "^3.2.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.0",
