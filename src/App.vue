@@ -29,7 +29,15 @@
           @dragover.prevent
           @drop="handleMapDrop"
         >
-          <v-stage ref="stage" :config="stageConfig" @click="handleStageClick">
+          <v-stage
+            ref="stage"
+            :config="stageConfig"
+            @click="handleStageClick"
+            @mousedown="handleStageMouseDown"
+            @mousemove="handleStageMouseMove"
+            @mouseup="handleStageMouseUp"
+            @mouseleave="handleStageMouseLeave"
+          >
             <v-layer ref="backgroundLayer">
               <v-image :config="backgroundConfig" />
             </v-layer>
@@ -153,7 +161,9 @@
             />
           </div>
 
-          <button @click="addWarehouse">添加新仓库</button>
+          <button @click="newAddWarehouse">
+            {{ isAddingWarehouse ? '拖动绘制新仓库' : '添加新仓库' }}
+          </button>
           <button @click="updateWarehouse">更新仓库属性</button>
           <button class="delete-btn" @click="resetAll">重置所有数据</button>
         </div>
@@ -356,6 +366,176 @@ export default {
       warehouses.value.push(newWarehouse)
       selectWarehouse(id)
       updateStatus(`仓库 "${newWarehouse.name}" 已创建`)
+    }
+
+    const isAddingWarehouse = ref(false)
+    const warehouseStartPoint = reactive({ x: 0, y: 0 })
+    const warehouseEndPoint = reactive({ x: 0, y: 0 })
+    const tempWarehouseRect = ref(null)
+
+    const newAddWarehouse = () => {
+      isAddingWarehouse.value = true
+      updateStatus('请在画布上拖拽以创建仓库')
+    }
+    // 添加创建仓库的函数
+    const createWarehouseFromDrag = () => {
+      if (!isAddingWarehouse.value) return
+
+      // 计算矩形的左上角坐标和尺寸
+      const minX = Math.min(warehouseStartPoint.x, warehouseEndPoint.x)
+      const minY = Math.min(warehouseStartPoint.y, warehouseEndPoint.y)
+      const width = Math.abs(warehouseEndPoint.x - warehouseStartPoint.x)
+      const height = Math.abs(warehouseEndPoint.y - warehouseStartPoint.y)
+      // 确保最小尺寸
+      if (width < 50 || height < 50) {
+        updateStatus('仓库尺寸太小，请拖拽更大的区域')
+        isAddingWarehouse.value = false
+        return
+      }
+      const id = `wh-${Date.now()}`
+      const newWarehouse = {
+        id,
+        name: currentWarehouse.name || `仓库${warehouses.value.length + 1}`,
+        color: currentWarehouse.color,
+        width,
+        height,
+        x: minX,
+        y: minY,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        products: [],
+        draggable: true,
+      }
+      warehouses.value.push(newWarehouse)
+      selectWarehouse(id)
+      updateStatus(`仓库 "${newWarehouse.name}" 已创建`)
+      isAddingWarehouse.value = false
+    }
+
+    // 添加鼠标按下处理函数
+    const handleStageMouseDown = (e) => {
+      // 如果正在添加仓库，处理仓库创建逻辑
+      if (isAddingWarehouse.value) {
+        const stageNode = stage.value.getNode()
+        const pointerPos = stageNode.getPointerPosition()
+
+        if (pointerPos) {
+          // 记录起点
+          warehouseStartPoint.x = pointerPos.x
+          warehouseStartPoint.y = pointerPos.y
+          warehouseEndPoint.x = pointerPos.x
+          warehouseEndPoint.y = pointerPos.y
+
+          // 创建临时矩形来显示拖拽区域
+          const layer =
+            stageNode.findOne('.warehouseLayer') || stageNode.children[2] // warehouseLayer
+          if (layer) {
+            tempWarehouseRect.value = new Konva.Rect({
+              x: warehouseStartPoint.x,
+              y: warehouseStartPoint.y,
+              width: 0,
+              height: 0,
+              fill: currentWarehouse.color,
+              opacity: 0.5,
+              stroke: '#3498db',
+              strokeWidth: 2,
+              dash: [5, 5],
+            })
+            layer.add(tempWarehouseRect.value)
+            layer.batchDraw()
+          }
+        }
+      }
+    }
+
+    // 修改 handleStageMouseMove 函数
+    const handleStageMouseMove = (e) => {
+      // 如果正在添加仓库且已开始拖拽，更新临时矩形
+      if (
+        isAddingWarehouse.value &&
+        warehouseStartPoint.x &&
+        warehouseStartPoint.y &&
+        tempWarehouseRect.value
+      ) {
+        const stageNode = stage.value.getNode()
+        const pointerPos = stageNode.getPointerPosition()
+
+        if (pointerPos) {
+          warehouseEndPoint.x = pointerPos.x
+          warehouseEndPoint.y = pointerPos.y
+
+          // 更新临时矩形的尺寸
+          const minX = Math.min(warehouseStartPoint.x, warehouseEndPoint.x)
+          const minY = Math.min(warehouseStartPoint.y, warehouseEndPoint.y)
+          const width = Math.abs(warehouseEndPoint.x - warehouseStartPoint.x)
+          const height = Math.abs(warehouseEndPoint.y - warehouseStartPoint.y)
+
+          tempWarehouseRect.value.x(minX)
+          tempWarehouseRect.value.y(minY)
+          tempWarehouseRect.value.width(width)
+          tempWarehouseRect.value.height(height)
+
+          // 重新绘制图层
+          tempWarehouseRect.value.getLayer().batchDraw()
+        }
+      }
+    }
+
+    // 添加鼠标释放处理函数
+    const handleStageMouseUp = (e) => {
+      // 如果正在添加仓库且已开始拖拽，创建仓库
+      if (
+        isAddingWarehouse.value &&
+        warehouseStartPoint.x &&
+        warehouseStartPoint.y
+      ) {
+        const stageNode = stage.value.getNode()
+        const pointerPos = stageNode.getPointerPosition()
+
+        if (pointerPos) {
+          // 记录终点
+          warehouseEndPoint.x = pointerPos.x
+          warehouseEndPoint.y = pointerPos.y
+
+          // 移除临时矩形
+          if (tempWarehouseRect.value) {
+            tempWarehouseRect.value.destroy()
+            tempWarehouseRect.value = null
+          }
+
+          // 创建仓库
+          createWarehouseFromDrag()
+
+          // 重置起点
+          warehouseStartPoint.x = 0
+          warehouseStartPoint.y = 0
+          warehouseEndPoint.x = 0
+          warehouseEndPoint.y = 0
+        }
+      }
+    }
+
+    // 添加鼠标离开画布处理函数
+    const handleStageMouseLeave = () => {
+      if (isAddingWarehouse.value) {
+        // 取消仓库添加操作
+        isAddingWarehouse.value = false
+
+        // 移除临时矩形
+        if (tempWarehouseRect.value) {
+          tempWarehouseRect.value.destroy()
+          tempWarehouseRect.value = null
+        }
+
+        // 重置坐标
+        warehouseStartPoint.x = 0
+        warehouseStartPoint.y = 0
+        warehouseEndPoint.x = 0
+        warehouseEndPoint.y = 0
+
+        updateStatus('已取消仓库创建')
+      }
     }
 
     const selectWarehouse = (id) => {
@@ -640,6 +820,12 @@ export default {
         })
         connectionLines.value = []
 
+        isAddingWarehouse.value = false
+        warehouseStartPoint.x = 0
+        warehouseStartPoint.y = 0
+        warehouseEndPoint.x = 0
+        warehouseEndPoint.y = 0
+
         // 重置变换器
         if (transformer.value) {
           transformer.value.getNode().nodes([])
@@ -723,6 +909,11 @@ export default {
     // 处理画布点击
     const handleStageClick = (e) => {
       console.log('Stage clicked:', e, e.target.getStage())
+      // 如果正在添加仓库，不处理点击事件，让鼠标按下事件处理
+      if (isAddingWarehouse.value) {
+        return
+      }
+
       // 如果点击的是空白区域，取消选择
       if (e.target === e.target.getStage()) {
         selectedWarehouseId.value = null
@@ -879,6 +1070,12 @@ export default {
       getGroupConfig,
       getWarehouseConfig,
       getLabelConfig,
+      handleStageMouseMove,
+      handleStageMouseLeave,
+      newAddWarehouse,
+      handleStageMouseUp,
+      handleStageMouseDown,
+      isAddingWarehouse,
     }
   },
 }
