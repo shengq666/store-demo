@@ -293,6 +293,51 @@ export default {
         if (newBox.width < 50 || newBox.height < 50) {
           return oldBox
         }
+
+        // 获取 stage 实例来限制边界
+        if (stage.value) {
+          const stageNode = stage.value.getNode()
+          if (stageNode) {
+            // 限制变形框不超出画布边界
+            const maxWidth = stageNode.width()
+            const maxHeight = stageNode.height()
+
+            // 确保变形框在画布内
+            if (newBox.x < 0) {
+              newBox.x = 0
+            }
+            if (newBox.y < 0) {
+              newBox.y = 0
+            }
+            if (newBox.x + newBox.width > maxWidth) {
+              // 如果右边界超出，调整宽度
+              if (newBox.x < maxWidth) {
+                newBox.width = maxWidth - newBox.x
+              } else {
+                newBox.width = 50 // 最小宽度
+                newBox.x = maxWidth - 50
+              }
+            }
+            if (newBox.y + newBox.height > maxHeight) {
+              // 如果下边界超出，调整高度
+              if (newBox.y < maxHeight) {
+                newBox.height = maxHeight - newBox.y
+              } else {
+                newBox.height = 50 // 最小高度
+                newBox.y = maxHeight - 50
+              }
+            }
+
+            // 确保最小尺寸限制仍然有效
+            if (newBox.width < 50) {
+              newBox.width = 50
+            }
+            if (newBox.height < 50) {
+              newBox.height = 50
+            }
+          }
+        }
+
         return newBox
       },
       padding: 0,
@@ -934,6 +979,22 @@ export default {
         name: 'warehouse',
         scaleX: 1,
         scaleY: 1,
+        // 使用 dragBoundFunc 限制拖拽边界
+        dragBoundFunc: function (pos) {
+          // 获取 Stage 实例
+          const stage = this.getStage()
+          if (!stage) return pos
+
+          // 计算边界限制
+          const maxWidth = stage.width() - this.width()
+          const maxHeight = stage.height() - this.height()
+
+          // 限制位置在画布范围内
+          return {
+            x: Math.max(0, Math.min(pos.x, maxWidth)),
+            y: Math.max(0, Math.min(pos.y, maxHeight)),
+          }
+        },
       }
     }
 
